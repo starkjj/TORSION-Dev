@@ -3,6 +3,20 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+// float B = 10.0f;	// Stiffness
+// float C = 1.9f;		// Shape
+// float E = 0.97f;	// Curvature
+// float D = 1.0f;     // Peak 
+
+public struct PacejkaData
+{
+    public float k;
+    public float B;
+    public float C;
+    public float D;
+    public float E;
+}
+
 public class Wheel : MonoBehaviour
 {
     float deltaTime;
@@ -10,6 +24,7 @@ public class Wheel : MonoBehaviour
 
     [Header("Hit Detection - Inputs")]
     public LayerMask layerMask;
+    public float D = 1.0f;
     [Header("Hit Detection - Outputs")]
     public bool isGrounded;
     RaycastHit hit;
@@ -27,21 +42,23 @@ public class Wheel : MonoBehaviour
     float driveTorque;
     public float wheelRadius;
     public float wheelInertia;
+    public PacejkaData pacejkaData;
     [Header("Wheel Motion - Outputs")]
     public float wheelAngularVelocity;
     public Vector3 linearVelocityLocal;
     float totalTorque;
-    Vector3 angularVelocityLocal;
-    Vector3 longitudinalDir;
-    Vector3 lateralDir;
+    public Vector3 angularVelocityLocal;
+    public Vector3 longitudinalDir;
+    public Vector3 lateralDir;
 
     [Header("Friction - Outputs")]
     public Vector3 fX;
     public Vector3 fY;
-    float slipAngle;
-    float muX;
-    float slipSpeed;
-    float muY;
+    public Vector3 outputForce;
+    public float slipAngle;
+    public float muX;
+    public float muY;
+    public float slipSpeed;
 
     //Inputs
     //float throttleInput; //Temp; Until Drivetrain
@@ -53,7 +70,6 @@ public class Wheel : MonoBehaviour
 
     public void UpdatePhysicsPre(float argDeltaTime)
     {
-        // throttleInput = Input.GetAxisRaw("Vertical"); //Temp; Make sure your vertical axis is defined in the input manager!
         deltaTime = argDeltaTime;
 
         if (Physics.Raycast(transform.position, -transform.up, out hit, restLength + wheelRadius, layerMask)) //Fire a raycast to get the distance between the toplink and the ground
@@ -74,10 +90,6 @@ public class Wheel : MonoBehaviour
 
             //Calculate the wheel's velocity and direction vectors
             GetWheelMotionOnGround();
-
-
-            // GetSimpleTireForce();
-            // ApplySimpleTireForce();
         }
         else //If we don't,
         {
@@ -138,53 +150,28 @@ public class Wheel : MonoBehaviour
         //Get the velocity of the wheel relative to the ground
         linearVelocityLocal = transform.InverseTransformDirection(vehicleBody.GetPointVelocity(hit.point)); //RB.GetPointVelocity Does Not Update w/ Substeps, If There's A Way To Get This Value Without The Use Of RB Functions, We Can Substep The Whole VP Implementation And Keep The Timestep @ 0.02
         angularVelocityLocal = linearVelocityLocal / wheelRadius; // omega = v / r
+        print(linearVelocityLocal);
 
         //Lateral and longitudinal directions of motion of the wheel
         longitudinalDir = Vector3.ProjectOnPlane(transform.forward, hit.normal).normalized;
         lateralDir = Vector3.ProjectOnPlane(transform.right, hit.normal).normalized;
     }
 
+    float EvaluatePacejka(float k, float b, float c, float e)
+    {
+        float phi = (1 - e) * k + (e / b) * Mathf.Atan(b * k);
+        return Mathf.Sin(c * Mathf.Atan(b * phi));
+    }
+    
     void CalculateLateralFriction()
     {
-        //Calculate Wheel Slip (Lateral)
-        float slipAnglePeak = 8.0f; //Pre-Pacejka: Hard-Coded Peak Slip Angle, Should Be Equal To The Peak In Pacejka Curve
-        float lowSpeedSlipAngle = slipAnglePeak * Mathf.Sign(-linearVelocityLocal.x) * Mathf.Clamp01(Mathf.Abs(linearVelocityLocal.x)); //Ramp function that mimics slip angle formula at low speeds
-        float highSpeedSlipAngle = 0.0f;
-        if (linearVelocityLocal.z != 0.0f)
-        {
-            highSpeedSlipAngle = Mathf.Atan(-linearVelocityLocal.x / Mathf.Abs(linearVelocityLocal.z)) * Mathf.Rad2Deg;
-        }
-        slipAngle = Mathf.Lerp(lowSpeedSlipAngle, highSpeedSlipAngle, MapRangeClamped(linearVelocityLocal.magnitude, 3.0f, 6.0f, 0.0f, 1.0f)); //Transition Between Low And High Speed Friction Models Based Off Of Wheel Speed
-
-        //Map Wheel Slip To Friction Curve
-        muX = MapRangeClamped(Mathf.Abs(slipAngle), 0.0f, slipAnglePeak, 0.0f, 1.0f) * Mathf.Sign(slipAngle); //Pre-Pacejka
+        slipAngle = Mathf.Atan2(-linearVelocityLocal.x, linearVelocityLocal.z); // slip angle
+        muX = EvaluatePacejka(slipAngle, 10.0f, 1.9f, 0.97f);
     }
 
     void CalculateLongitudinalFriction()
     {
-        // int substeps = 5;
-        // float subDT = deltaTime / (float)substeps;
-        // for (int i = 0; i < substeps; i++) //Substep Friction And Wheel Accel For Stability (Total Steps = (Physics Rate * Iterations); @ 250 = Stable
-        // {
-        //     //Calculate Torque Acting On Wheel
-        //     float driveTorque = throttleInput * motorTorque; //Temp, will come from drivetrain later
-        //     float frictionTorque = muY * Mathf.Max(fZ.y, 0.0f) * wheelRadius;
-        //     totalTorque = driveTorque - frictionTorque;
-
-        //     //Integrate Angular Velocity
-        //     float wheelAngularAcceleration = totalTorque / wheelInertia;
-        //     wheelAngularVelocity += wheelAngularAcceleration * subDT;
-
-        //     //Calculate Wheel Slip (Longitduinal)
-        //     float slipSpeedPeak = 4.0f; //Pre-Pacejka: Hard-Coded Peak Slip Speed, Should Be Equal To The Peak In Pacejka Curve
-        //     slipSpeed = wheelAngularVelocity - angularVelocityLocal.z;
-
-        //     //Map Wheel Slip To Friction Curve
-        //     muY = MapRangeClamped(Mathf.Abs(slipSpeed), 0.0f, slipSpeedPeak, 0.0f, 1.0f) * Mathf.Sign(slipSpeed); //Pre-Pacejka
-        // }
-
         //Calculate Torque Acting On Wheel
-        // float driveTorque = throttleInput * motorTorque; //Temp, will come from drivetrain later
         float frictionTorque = muY * Mathf.Max(fZ.y, 0.0f) * wheelRadius;
         totalTorque = driveTorque - frictionTorque;
 
@@ -192,19 +179,18 @@ public class Wheel : MonoBehaviour
         float wheelAngularAcceleration = totalTorque / wheelInertia;
         wheelAngularVelocity += wheelAngularAcceleration * deltaTime;
 
-        //Calculate Wheel Slip (Longitduinal)
-        float slipSpeedPeak = 4.0f; //Pre-Pacejka: Hard-Coded Peak Slip Speed, Should Be Equal To The Peak In Pacejka Curve
         slipSpeed = wheelAngularVelocity - angularVelocityLocal.z;
 
         //Map Wheel Slip To Friction Curve
-        muY = MapRangeClamped(Mathf.Abs(slipSpeed), 0.0f, slipSpeedPeak, 0.0f, 1.0f) * Mathf.Sign(slipSpeed); //Pre-Pacejka
+        muY = EvaluatePacejka(slipSpeed, 10.0f, 1.9f, 0.97f);
     }
 
     void ApplyFrictionForce()
     {
         fX = lateralDir * muX * Mathf.Max(fZ.y, 0.0f); //F_lat = u * N * -latDir
         fY = longitudinalDir * muY * Mathf.Max(fZ.y, 0.0f); // F_long = u * N * -longDir
-        vehicleBody.AddForceAtPosition(fX + fY, hit.point); //Apply the friction force at the wheel's contact patch
+        outputForce = (fX + fY);
+        vehicleBody.AddForceAtPosition(outputForce, hit.point); //Apply the friction force at the wheel's contact patch
     }
 
     // void GetSimpleTireForce()

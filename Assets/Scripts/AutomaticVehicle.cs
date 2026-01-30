@@ -2,14 +2,14 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Vehicle : MonoBehaviour
+public class AutomaticVehicle : MonoBehaviour
 {
     float deltaTime;
     const int SUBSTEPS = 100; //(physics stable @ physics freq. * substeps = 5000+ Hz)
     float subDeltaTime;
 
     public Engine engine;
-    public Clutch clutch;
+    public TorqueConverter torqueConverter;
     public Gearbox gearbox;
     public Differential differential;
     public Wheel[] wheels;
@@ -20,13 +20,9 @@ public class Vehicle : MonoBehaviour
     [Header("Inputs")]
     public float throttleInput;
     public float throttleSensitivity;
-    public float clutchInput;
-    public float clutchSensitivity;
     public float steeringInput;
     public float steeringSensitivity;
     public float starterInput;
-    public bool shiftUpInput;
-    public bool shiftDownInput;
 
     [Header("Dimensions")]
     public float wheelbase;
@@ -50,15 +46,13 @@ public class Vehicle : MonoBehaviour
     {
         //Update inputs
         throttleInput = Mathf.MoveTowards(throttleInput, Mathf.Max(Input.GetAxisRaw("Vertical"), 0.0f), Time.deltaTime * throttleSensitivity);
-        clutchInput = Mathf.MoveTowards(clutchInput, System.Convert.ToSingle(Input.GetKey(KeyCode.LeftShift)), Time.deltaTime * clutchSensitivity);
         steeringInput = Mathf.MoveTowards(steeringInput, Input.GetAxisRaw("Horizontal"), Time.deltaTime * steeringSensitivity);
-        starterInput = System.Convert.ToSingle(Input.GetKey(KeyCode.X));
-        
-        if (Input.GetKeyDown(KeyCode.E))
+        starterInput = System.Convert.ToSingle(Input.GetKey(KeyCode.K));
+        if (Input.GetKeyDown(KeyCode.G))
         {
             StartCoroutine(gearbox.ShiftUp());
         }
-        if (Input.GetKeyDown(KeyCode.Q))
+        if (Input.GetKeyDown(KeyCode.B))
         {
             StartCoroutine(gearbox.ShiftDown());
         }
@@ -79,13 +73,14 @@ public class Vehicle : MonoBehaviour
         //Drivetrain loop (RWD)
         for (int i = 0; i < SUBSTEPS; i++)
         {
-            engine.UpdatePhysics(subDeltaTime, throttleInput, starterInput, clutch.clutchTorque);
-            clutch.UpdatePhysics(clutchInput, gearbox.inGear, engine.angularVelocity, gearbox.GetUpstreamAngularVelocity(differential.GetUpstreamAngularVelocity(new Vector2(wheels[2].wheelAngularVelocity, wheels[3].wheelAngularVelocity))));
+            engine.UpdatePhysics(subDeltaTime, throttleInput, starterInput, torqueConverter.outputTorque);
+            torqueConverter.UpdatePhysics(engine.angularVelocity, gearbox.GetUpstreamAngularVelocity(differential.GetUpstreamAngularVelocity(new Vector2(wheels[2].wheelAngularVelocity, wheels[3].wheelAngularVelocity))));
             gearbox.UpdatePhysics();
             wheels[0].UpdatePhysicsDrivetrain(subDeltaTime, 0.0f);
             wheels[1].UpdatePhysicsDrivetrain(subDeltaTime, 0.0f);
-            wheels[2].UpdatePhysicsDrivetrain(subDeltaTime, differential.GetDownstreamTorque(gearbox.GetDownstreamTorque(clutch.clutchTorque)).x);
-            wheels[3].UpdatePhysicsDrivetrain(subDeltaTime, differential.GetDownstreamTorque(gearbox.GetDownstreamTorque(clutch.clutchTorque)).y);
+            var drivenWheelTorque = differential.GetDownstreamTorque(gearbox.GetDownstreamTorque(torqueConverter.outputTorque));
+            wheels[2].UpdatePhysicsDrivetrain(subDeltaTime, drivenWheelTorque.x);
+            wheels[3].UpdatePhysicsDrivetrain(subDeltaTime, drivenWheelTorque.y);
         }
 
         //Post-Drivetrain loop
@@ -109,13 +104,14 @@ public class Vehicle : MonoBehaviour
 
     void OnGUI()
     {
-        GUI.BeginGroup(new Rect(10, 10, 800, 400));
-        GUILayout.Label("MPH: " + GetComponent<Rigidbody>().linearVelocity.magnitude * 2.2369362921f);
+        GUI.BeginGroup(new Rect(10, 10, 100, 200));
         GUILayout.Label("RPM: " + engine.engineRPM);
         GUILayout.Label("Throttle: " + throttleInput);
-        GUILayout.Label("Clutch: " + clutchInput);
+        GUILayout.Label("TC In Torque: " + torqueConverter.torqueIn);
+        GUILayout.Label("TC Out Torque: " + torqueConverter.torqueOut);
+        GUILayout.Label("TC Speed In: " + torqueConverter.speedIn);
+        GUILayout.Label("TC Speed Out: " + torqueConverter.speedOut);
         GUILayout.Label("Gear: " + gearbox.indicator);
         GUILayout.Label("Gear Ratio: " + gearbox.currentGearRatio);
-        GUI.EndGroup();
     }
 }

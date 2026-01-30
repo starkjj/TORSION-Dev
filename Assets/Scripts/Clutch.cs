@@ -23,10 +23,6 @@ public class Clutch : MonoBehaviour
         velocityEngine = argVelocityIn;
         velocityTransmission = argVelocityOut;
 
-        // //Calculate engagement
-        // float clutchSensitivity = 5.0f;
-        // clutchInput = Mathf.MoveTowards(clutchInput, System.Convert.ToSingle(Input.GetKey(KeyCode.X)), Time.fixedDeltaTime * clutchSensitivity);
-
         //Calculate slip
         if (inGear)
         {

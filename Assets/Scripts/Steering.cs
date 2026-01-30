@@ -1,5 +1,7 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using UnityEngine;
 
 public class Steering : MonoBehaviour
@@ -11,12 +13,15 @@ public class Steering : MonoBehaviour
     float wheelbase; //Distance between front and rear wheels
     float rearTrackLength; //Distance between the left and right rear wheels
     float turningRadius; //Search up online or set to your preference to control max steering angle
-
+    
     [Header("Outputs")]
     public float steerAngle;
 
+    private Wheel _wheel;
+
     public void Initialize(float argWheelBase, float argRearTrackLength, float argTurningRadius)
     {
+        _wheel = GetComponent<Wheel>();
         wheelbase = argWheelBase;
         rearTrackLength = argRearTrackLength;
         turningRadius = argTurningRadius;
@@ -59,6 +64,18 @@ public class Steering : MonoBehaviour
         }
 
         // IMPORTANT FOR LATERAL FRICTION!! Set the toplink's rotation accordingly; Allows there to be a lateral velocity at the contact patch
-        transform.localRotation = Quaternion.Euler(new Vector3(transform.localEulerAngles.x, steerAngle, transform.localEulerAngles.z));
+        // transform.localRotation = Quaternion.Euler(new Vector3(transform.localEulerAngles.x, steerAngle, transform.localEulerAngles.z));
+        if (steeringBehavior != SteeringBehavior.Disabled)
+        {
+            _wheel.linearVelocityLocal = Quaternion.AngleAxis(-steerAngle, transform.up) * _wheel.linearVelocityLocal;
+        }
+    }
+
+    private void OnGUI()
+    {
+        if (steeringBehavior != SteeringBehavior.Disabled)
+        {
+            GUI.Label(new Rect(10, 250, 100, 20), steerAngle.ToString(CultureInfo.CurrentCulture));
+        }
     }
 }

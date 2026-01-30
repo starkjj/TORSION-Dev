@@ -111,4 +111,9 @@ public class Engine : MonoBehaviour
         float result = Mathf.Lerp(outRangeA, outRangeB, Mathf.InverseLerp(inRangeA, inRangeB, value));
         return (result);
     }
+
+    float GetRpm()
+    {
+        return engineRPM;
+    }
 }

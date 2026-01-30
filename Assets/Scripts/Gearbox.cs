@@ -6,7 +6,7 @@ public class Gearbox : MonoBehaviour
 {
     public float[] gearRatios;
     public float shiftDuration;
-    int currentGear;
+    public int currentGear;
     // bool shiftUp;
     // bool shiftDown;
     bool shifting;
@@ -15,7 +15,7 @@ public class Gearbox : MonoBehaviour
     [Header("Outputs")]
     public bool inGear;
     public float currentGearRatio;
-    // public string indicator;
+    public string indicator;
 
     public void Initialize()
     {
@@ -23,20 +23,6 @@ public class Gearbox : MonoBehaviour
         inGear = false;
         currentGear = 1;
     }
-
-    // void Update() //Keep player input disconnected from physics rate
-    // {
-    //     if (Input.GetKeyDown(KeyCode.G))
-    //     {
-    //         shiftUp = true;
-    //         shiftDown = false;
-    //     }
-    //     if (Input.GetKeyDown(KeyCode.B))
-    //     {
-    //         shiftDown = true;
-    //         shiftUp = false;
-    //     }
-    // }
 
     public void UpdatePhysics()
     {
@@ -67,26 +53,26 @@ public class Gearbox : MonoBehaviour
             inGear = false;
         }
 
-        // //Gear Indicator (Assumes one reverse gear)
-        // if (inGear)
-        // {
-        //     if (currentGear == 0)
-        //     {
-        //         indicator = "R";
-        //     }
-        //     else if (currentGear == 1)
-        //     {
-        //         indicator = "N";
-        //     }
-        //     else
-        //     {
-        //         indicator = System.Convert.ToString(currentGear - 1);
-        //     }
-        // }
-        // else
-        // {
-        //     indicator = "N";
-        // }
+        //Gear Indicator (Assumes one reverse gear)
+        if (inGear)
+        {
+            if (currentGear == 0)
+            {
+                indicator = "R";
+            }
+            else if (currentGear == 1)
+            {
+                indicator = "N";
+            }
+            else
+            {
+                indicator = System.Convert.ToString(currentGear - 1);
+            }
+        }
+        else
+        {
+            indicator = "N";
+        }
     }
     
     public float GetDownstreamTorque(float argTorque) //Uncomment once drivetrain is complete
@@ -104,7 +90,6 @@ public class Gearbox : MonoBehaviour
         if ((currentGear < gearRatios.Length - 1) && (!shifting)) //If not currently in top gear,
         {
             //Shift to neutral,
-            // shiftUp = false;
             shifting = true;
             inGear = false;
             int nextGear = currentGear + 1;
