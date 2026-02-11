@@ -1,6 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.TextCore.LowLevel;
+using UnityEngine.UI;
 
 public class Vehicle : MonoBehaviour
 {
@@ -33,8 +35,15 @@ public class Vehicle : MonoBehaviour
     public float rearTrackLength;
     public float turningRadius;
 
+    [Header("UI")] 
+    public UIManager uiManager;
+    
+    private Rigidbody rb;
+
     void Start()
     {
+        rb = GetComponent<Rigidbody>();
+        
         for (int i = 0; i < wheels.Length; i++)
         {
             steerings[i].Initialize(wheelbase, rearTrackLength, turningRadius);
@@ -62,6 +71,26 @@ public class Vehicle : MonoBehaviour
         {
             StartCoroutine(gearbox.ShiftDown());
         }
+
+        if (engine.engineRPM >= 3000)
+        {
+            StartCoroutine(gearbox.ShiftUp());
+        }
+
+        if (engine.engineRPM <= engine.idleRPM * 1.2f)
+        {
+            if (gearbox.currentGear > 3)
+            {
+                StartCoroutine(gearbox.ShiftDown());
+            } 
+        }
+
+        if (gearbox.shifting)
+        {
+            throttleInput = 0;
+        }
+
+        uiManager.SetVehicleProperties(MapRangeClamped(engine.engineRPM - 200, engine.idleRPM, engine.redlineRPM, 0, 1), gearbox.currentGear);
     }
 
     void FixedUpdate()
@@ -80,7 +109,15 @@ public class Vehicle : MonoBehaviour
         for (int i = 0; i < SUBSTEPS; i++)
         {
             engine.UpdatePhysics(subDeltaTime, throttleInput, starterInput, clutch.clutchTorque);
-            clutch.UpdatePhysics(clutchInput, gearbox.inGear, engine.angularVelocity, gearbox.GetUpstreamAngularVelocity(differential.GetUpstreamAngularVelocity(new Vector2(wheels[2].wheelAngularVelocity, wheels[3].wheelAngularVelocity))));
+            clutch.UpdatePhysics(
+                clutchInput,
+                gearbox.inGear,
+                engine.angularVelocity,
+                gearbox.GetUpstreamAngularVelocity(
+                    differential.GetUpstreamAngularVelocity(
+                        new Vector2(wheels[2].wheelAngularVelocity, wheels[3].wheelAngularVelocity))
+                    )
+            );
             gearbox.UpdatePhysics();
             wheels[0].UpdatePhysicsDrivetrain(subDeltaTime, 0.0f);
             wheels[1].UpdatePhysicsDrivetrain(subDeltaTime, 0.0f);
@@ -110,12 +147,18 @@ public class Vehicle : MonoBehaviour
     void OnGUI()
     {
         GUI.BeginGroup(new Rect(10, 10, 800, 400));
-        GUILayout.Label("MPH: " + GetComponent<Rigidbody>().linearVelocity.magnitude * 2.2369362921f);
         GUILayout.Label("RPM: " + engine.engineRPM);
         GUILayout.Label("Throttle: " + throttleInput);
         GUILayout.Label("Clutch: " + clutchInput);
         GUILayout.Label("Gear: " + gearbox.indicator);
         GUILayout.Label("Gear Ratio: " + gearbox.currentGearRatio);
+        GUILayout.Label("Speed: " + rb.linearVelocity.magnitude * 2.2369362921f);
         GUI.EndGroup();
+    }
+    
+    float MapRangeClamped(float value, float inRangeA, float inRangeB, float outRangeA, float outRangeB) //Maps a value from one range to another
+    {
+        float result = Mathf.Lerp(outRangeA, outRangeB, Mathf.InverseLerp(inRangeA, inRangeB, value));
+        return (result);
     }
 }

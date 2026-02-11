@@ -1,6 +1,4 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 // float B = 10.0f;	// Stiffness
@@ -8,27 +6,33 @@ using UnityEngine;
 // float E = 0.97f;	// Curvature
 // float D = 1.0f;     // Peak 
 
-public struct PacejkaData
+[Serializable]
+public struct HitData
 {
-    public float k;
-    public float B;
-    public float C;
-    public float D;
-    public float E;
+    public float distance;
+    public Vector3 normal;
+    public Vector3 point;
+    public int totalHit;
+
+    public void Reset()
+    {
+        distance = 0;
+        totalHit = 0;
+        normal = Vector3.zero;
+        point = Vector3.zero;
+    }
 }
 
 public class Wheel : MonoBehaviour
 {
-    float deltaTime;
+    private float deltaTime;
     public Rigidbody vehicleBody;
 
     [Header("Hit Detection - Inputs")]
     public LayerMask layerMask;
-    public float D = 1.0f;
     [Header("Hit Detection - Outputs")]
     public bool isGrounded;
-    RaycastHit hit;
-
+    
     [Header("Suspension - Inputs")]
     public float restLength;
     public float springStiffness;
@@ -36,17 +40,16 @@ public class Wheel : MonoBehaviour
     [Header("Suspension - Outputs")]
     public Vector3 fZ;
     public float currentLength;
-    float lastLength;
+    public float lastLength;
 
     [Header("Wheel Motion - Inputs")]
-    float driveTorque;
+    public float driveTorque;
     public float wheelRadius;
     public float wheelInertia;
-    public PacejkaData pacejkaData;
     [Header("Wheel Motion - Outputs")]
     public float wheelAngularVelocity;
     public Vector3 linearVelocityLocal;
-    float totalTorque;
+    public float totalTorque;
     public Vector3 angularVelocityLocal;
     public Vector3 longitudinalDir;
     public Vector3 lateralDir;
@@ -60,42 +63,61 @@ public class Wheel : MonoBehaviour
     public float muY;
     public float slipSpeed;
 
-    //Inputs
-    //float throttleInput; //Temp; Until Drivetrain
-
-    // //Deprecated
-    // public float uLong;
-    // public float uLat;
-    // public Vector3 simpleTireForce;
-
+    public HitData hitData;
+    private float _patchSize = 0.05f;
+    
     public void UpdatePhysicsPre(float argDeltaTime)
     {
+        hitData.Reset();
         deltaTime = argDeltaTime;
 
-        if (Physics.Raycast(transform.position, -transform.up, out hit, restLength + wheelRadius, layerMask)) //Fire a raycast to get the distance between the toplink and the ground
+        var p = transform.position;
+        Vector3[] points = new Vector3[5]
         {
-            isGrounded = true;
+            p,
+            new Vector3(p.x - _patchSize, p.y, p.z + _patchSize),
+            new Vector3(p.x + _patchSize, p.y, p.z + _patchSize),
+            new Vector3(p.x - _patchSize, p.y, p.z - _patchSize),
+            new Vector3(p.x + _patchSize, p.y, p.z - _patchSize)
+        };
+
+        foreach (var point in points)
+        {
+            if (Physics.Raycast(point, -transform.up, out var hit, restLength + wheelRadius, layerMask))
+            {
+                hitData.totalHit++;
+                hitData.normal += hit.normal;
+                hitData.point += hit.point;
+                hitData.distance += hit.distance;
+                
+                Debug.DrawLine(point, hit.point, Color.green);
+            }
+            else
+            {
+                Debug.DrawRay(point, -transform.up * (restLength + wheelRadius), Color.red);
+            }
         }
-        else
+
+        if (hitData.totalHit == 0)
         {
             isGrounded = false;
-        }
-
-        if (isGrounded) //If we hit something,
-        {
-            //Calculate and apply the suspension force (Fz)
-            currentLength = hit.distance - wheelRadius;
-            CalculateSuspensionForce();
-            ApplySuspensionForce();
-
-            //Calculate the wheel's velocity and direction vectors
-            GetWheelMotionOnGround();
-        }
-        else //If we don't,
-        {
-            //Reset values that need resetting
+            hitData.Reset();
             ResetValues();
+            return;
         }
+
+        isGrounded = true;
+        
+        hitData.normal /= hitData.totalHit;
+        hitData.point /= hitData.totalHit;
+        hitData.distance /= hitData.totalHit;
+        currentLength = hitData.distance - wheelRadius;
+        
+        Debug.DrawRay(hitData.point, hitData.normal.normalized, Color.blue);
+        
+        CalculateSuspensionForce();
+        ApplySuspensionForce();
+        GetWheelMotionOnGround();
     }
 
     public void UpdatePhysicsDrivetrain(float argDeltaTime, float argDriveTorque)
@@ -136,25 +158,28 @@ public class Wheel : MonoBehaviour
         float damperForce = springVelocity * damperStiffness;
 
         float suspensionForce = springForce + damperForce;
-        fZ = hit.normal.normalized * suspensionForce; //Suspension force acts perpendicular to the contact patch
+        fZ = hitData.normal.normalized * suspensionForce; //Suspension force acts perpendicular to the contact patch
 
-        lastLength = currentLength; //Set the lastLength for the next frame
+        //Set the lastLength for the next frame
+        lastLength = currentLength; 
     }
+    
     void ApplySuspensionForce()
     {
-        vehicleBody.AddForceAtPosition(fZ, transform.position); //Apply the suspension force to the vehicle at the toplink position
+        //Apply the suspension force to the vehicle at the toplink position
+        vehicleBody.AddForceAtPosition(fZ, transform.position); 
     }
 
     void GetWheelMotionOnGround()
     {
         //Get the velocity of the wheel relative to the ground
-        linearVelocityLocal = transform.InverseTransformDirection(vehicleBody.GetPointVelocity(hit.point)); //RB.GetPointVelocity Does Not Update w/ Substeps, If There's A Way To Get This Value Without The Use Of RB Functions, We Can Substep The Whole VP Implementation And Keep The Timestep @ 0.02
+        //RB.GetPointVelocity Does Not Update w/ Substeps, If There's A Way To Get This Value Without The Use Of RB Functions, We Can Substep The Whole VP Implementation And Keep The Timestep @ 0.02
+        linearVelocityLocal = transform.InverseTransformDirection(vehicleBody.GetPointVelocity(hitData.point));
         angularVelocityLocal = linearVelocityLocal / wheelRadius; // omega = v / r
-        print(linearVelocityLocal);
 
         //Lateral and longitudinal directions of motion of the wheel
-        longitudinalDir = Vector3.ProjectOnPlane(transform.forward, hit.normal).normalized;
-        lateralDir = Vector3.ProjectOnPlane(transform.right, hit.normal).normalized;
+        longitudinalDir = Vector3.ProjectOnPlane(transform.forward, hitData.normal).normalized;
+        lateralDir = Vector3.ProjectOnPlane(transform.right, hitData.normal).normalized;
     }
 
     float EvaluatePacejka(float k, float b, float c, float e)
@@ -190,22 +215,8 @@ public class Wheel : MonoBehaviour
         fX = lateralDir * muX * Mathf.Max(fZ.y, 0.0f); //F_lat = u * N * -latDir
         fY = longitudinalDir * muY * Mathf.Max(fZ.y, 0.0f); // F_long = u * N * -longDir
         outputForce = (fX + fY);
-        vehicleBody.AddForceAtPosition(outputForce, hit.point); //Apply the friction force at the wheel's contact patch
+        vehicleBody.AddForceAtPosition(outputForce, hitData.point); //Apply the friction force at the wheel's contact patch
     }
-
-    // void GetSimpleTireForce()
-    // {
-    //     throttle = -Input.GetAxisRaw("Vertical"); //Make sure your vertical axis is defined in the input manager!
-
-    //     Vector3 longitudinalTireForce = (throttle * uLong) * Mathf.Max(0.0f, fZ.y) * -longitudinalDir; // F_long = u * N * -longDir
-    //     Vector3 lateralTireForce = (Mathf.Clamp(linearVelocityLocal.x, -1.0f, 1.0f) * uLat) * Mathf.Max(0.0f, fZ.y) * -lateralDir; //F_lat = u * N * -latDir
-    //     simpleTireForce = longitudinalTireForce + lateralTireForce;
-    // }
-
-    // void ApplySimpleTireForce()
-    // {
-    //     vehicleBody.AddForceAtPosition(simpleTireForce, hit.point); //apply the friction force at the wheel's contact patch
-    // }
 
     void ResetValues()
     {
@@ -214,33 +225,13 @@ public class Wheel : MonoBehaviour
         slipAngle = slipSpeed = 0.0f; //Set wheel slip to zero
         muX = muY = 0.0f; //Set friction coefficients to zero
         fX = fY = fZ = Vector3.zero; //Set forces to zero
-
-        // fZ = simpleTireForce = Vector3.zero; //Set forces to zero
     }
 
     void GetWheelMotionInAir()
     {
-        // int substeps = 5;
-        // float subDT = deltaTime / (float)substeps;
-        // for (int i = 0; i < substeps; i++)
-        // {
-        //     float driveTorque = throttleInput * motorTorque; //Temp, will come from drivetrain later
-        //     float totalTorque = driveTorque;
+        float netTorque = driveTorque;
 
-        //     float wheelAngularAcceleration = totalTorque / wheelInertia;
-        //     wheelAngularVelocity += wheelAngularAcceleration * subDT;
-        // }
-
-        // float driveTorque = throttleInput * motorTorque; //Temp, will come from drivetrain later
-        float totalTorque = driveTorque;
-
-        float wheelAngularAcceleration = totalTorque / wheelInertia;
+        float wheelAngularAcceleration = netTorque / wheelInertia;
         wheelAngularVelocity += wheelAngularAcceleration * deltaTime;
-    }
-
-    float MapRangeClamped(float value, float inRangeA, float inRangeB, float outRangeA, float outRangeB) //Maps a value from one range to another
-    {
-        float result = Mathf.Lerp(outRangeA, outRangeB, Mathf.InverseLerp(inRangeA, inRangeB, value));
-        return (result);
     }
 }

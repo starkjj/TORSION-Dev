@@ -75,7 +75,8 @@ public class Steering : MonoBehaviour
     {
         if (steeringBehavior != SteeringBehavior.Disabled)
         {
-            GUI.Label(new Rect(10, 250, 100, 20), steerAngle.ToString(CultureInfo.CurrentCulture));
+            var position = steeringBehavior == SteeringBehavior.Left ? 250 : 275;
+            GUI.Label(new Rect(10, position, 100, 20), steerAngle.ToString(CultureInfo.CurrentCulture));
         }
     }
 }

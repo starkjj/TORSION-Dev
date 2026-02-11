@@ -12,67 +12,41 @@ public class TorqueConverter : MonoBehaviour
     public bool isReverseFlow = false;
 
     public float outputTorque = 0;
-    
-    float GetSpeedRatio()
-    {
-        if (Mathf.Abs(speedIn) < 10e-9 || Mathf.Abs(speedOut) < 10e-9)
-        {
-            return 0;
-        }
 
-        return speedOut / speedIn;
+    public float GetTorqueRatio(float speedRatio)
+    {
+        // At stall (0.0 ratio), torque is multiplied (approx 2.0x)
+        // At coupling (0.9+ ratio), torque ratio drops to 1.0x
+        return Mathf.Max(1.0f, 2.0f - (speedRatio * 1.1f));
     }
 
-    public void UpdatePhysics(float inShaftSpeed, float outShaftSpeed)
+    public float CalculateOutputTorque(float engineTorque, float engineRPM, float transmissionRPM)
     {
-        isReverseFlow = false;
-        
-        // torque_in = input_torque;
-        speedIn = inShaftSpeed;
-        speedOut = outShaftSpeed;
+        // 1. Prevent division by zero
+        if (engineRPM <= 0) return 0;
 
-        // might also calculate with:
-        // speed_in = FMath::Sqrt(input_torque)*mK
-        // but I guess I need the speeds to calculate the K factor?
+        // 2. Calculate Speed Ratio
+        float speedRatio = transmissionRPM / engineRPM;
+        speedRatio = Mathf.Clamp(speedRatio, 0f, 1f);
+
+        // 3. Get Torque Multiplication Factor
+        float torqueMult = GetTorqueRatio(speedRatio);
+
+        // 4. Calculate final torque output to transmission
+        return engineTorque * torqueMult;
+    }
     
-        // compute the speed ratio
-        var mR = GetSpeedRatio();
-
-        // speed ratio is always in the 0-1 range,
-        // correct just in case 
-
-        if (mR > 1) {
-            mR = 1 - (mR - 1);
-            isReverseFlow = true;
+    public void UpdatePhysics(float engineTorque, float engineRPM, float transmissionRPM)
+    {
+        if (engineRPM.Equals(transmissionRPM))
+        {
+            // Direct mechanical connection
+            outputTorque = engineTorque;
         }
-
-        // If in reverse, then stall
-        if (mR < 0) { mR = 0; }
-
-        // if spinning in a negative direction, set to zero and bail
-        if (inShaftSpeed < 0) {
-            torqueIn = 0;
-            torqueOut = 0;
+        else
+        {
+            // Use the fluid logic from above
+            outputTorque = CalculateOutputTorque(engineTorque, engineRPM, transmissionRPM);
         }
-
-        // compute actual capacity factor
-        var mK = capacityFactor.Evaluate(mR);
-
-        // compute actual torque factor
-        var mT = torqueRatio.Evaluate(mR);
-
-        // compute input torque (with minus sign because applied to input shaft)
-        torqueIn = -Mathf.Pow((inShaftSpeed / mK), 2);
-
-        // compute output torque (with negative b/c applied to output shaft, same direction of input shaft)
-        if (isReverseFlow) {
-            // in reverse flow situation, the convert is always in clutch mode (TR = 1)
-            // so the torque cannot be increased
-            torqueOut = -torqueIn;
-        } else {
-            torqueOut = -mT * torqueIn;
-        }
-
-        outputTorque = torqueOut;
     }
 }

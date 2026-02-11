@@ -9,7 +9,7 @@ public class Gearbox : MonoBehaviour
     public int currentGear;
     // bool shiftUp;
     // bool shiftDown;
-    bool shifting;
+    public bool shifting;
 
 
     [Header("Outputs")]
@@ -26,19 +26,6 @@ public class Gearbox : MonoBehaviour
 
     public void UpdatePhysics()
     {
-        // shiftUp = argShiftUp;
-        // shiftDown = argShiftDown;
-
-        // //Shifting Logic
-        // if (shiftUp && !shifting)
-        // {
-        //     StartCoroutine(ShiftUp());
-        // }
-        // if (shiftDown && !shifting)
-        // {
-        //     StartCoroutine(ShiftDown());
-        // }
-
         //Geartrain
         if (inGear)
         {
@@ -110,7 +97,6 @@ public class Gearbox : MonoBehaviour
         if((currentGear > 0) && (!shifting)) //If not currently in bottom gear,
         {
             //Shift to neutral,
-            // shiftDown = false;
             shifting = true;
             inGear = false;
             int nextGear = currentGear - 1;

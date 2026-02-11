@@ -5,8 +5,6 @@ using UnityEngine;
 public class Engine : MonoBehaviour
 {
     [Header("Inputs")]
-    // public float starterInput;
-    // float throttleInput;
     public float throttle;
 
     [Header("Idler Circuit")]
@@ -26,6 +24,7 @@ public class Engine : MonoBehaviour
 
     [Header("Engine Parameters")]
     public AnimationCurve torqueCurve;
+    public float maxTorque;
     public float starterTorque;
     public float initialFrictionTorque;
     public float frictionLossCoefficient;
@@ -45,12 +44,6 @@ public class Engine : MonoBehaviour
 
     public void UpdatePhysics(float argDeltaTime, float throttleInput, float starterInput, float argLoadTorque)
     {
-        // float throttleSensitivity = 10.0f; //Change how responsive the throttle is
-
-        //Player input
-        // throttleInput = Mathf.MoveTowards(throttleInput, Mathf.Max(Input.GetAxisRaw("Vertical"), 0.0f), Time.fixedDeltaTime * throttleSensitivity); //Make sure your vertical axis is defined in the input manager!
-        // starterInput = System.Convert.ToSingle(Input.GetKey(KeyCode.K));
-
         //Idler Circuit
         idler = MapRangeClamped(engineRPM, idleRPM - 200.0f, idleRPM + 200.0f, idleThrottle, 0.0f);
         timer += argDeltaTime;
@@ -79,7 +72,7 @@ public class Engine : MonoBehaviour
 
         //Calculate engine torque
         float startingTorque = starterInput * starterTorque;
-        float grossTorque = torqueCurve.Evaluate(engineRPM) * throttle; //Evaluate the engine's current gross torque output based off the current RPM and throttle input
+        float grossTorque = torqueCurve.Evaluate(engineRPM) * maxTorque * throttle; //Evaluate the engine's current gross torque output based off the current RPM and throttle input
         float frictionLosses = Mathf.Min(Mathf.Abs(initialFrictionTorque + (engineRPM * frictionLossCoefficient)), Mathf.Abs((angularVelocity / argDeltaTime) * inertia)) * Mathf.Sign(angularVelocity); //loss = constant + (linear * RPM)
         netTorque = (grossTorque + startingTorque) - frictionLosses - argLoadTorque;
 
@@ -87,6 +80,11 @@ public class Engine : MonoBehaviour
         float angularAcceleration = netTorque / inertia; //Newton's 2nd law of motion
         angularVelocity += angularAcceleration * argDeltaTime; //Newton's 1st equation of motion
         engineRPM = Rads2RPM(angularVelocity);
+    }
+
+    public float GetCurrentTorque()
+    {
+        return torqueCurve.Evaluate(engineRPM);
     }
 
     IEnumerator ThrottleCutoff()

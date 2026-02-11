@@ -29,8 +29,12 @@ public class AutomaticVehicle : MonoBehaviour
     public float rearTrackLength;
     public float turningRadius;
 
+    private Rigidbody rb;
+
     void Start()
     {
+        rb = GetComponent<Rigidbody>();
+        
         for (int i = 0; i < wheels.Length; i++)
         {
             steerings[i].Initialize(wheelbase, rearTrackLength, turningRadius);
@@ -74,7 +78,7 @@ public class AutomaticVehicle : MonoBehaviour
         for (int i = 0; i < SUBSTEPS; i++)
         {
             engine.UpdatePhysics(subDeltaTime, throttleInput, starterInput, torqueConverter.outputTorque);
-            torqueConverter.UpdatePhysics(engine.angularVelocity, gearbox.GetUpstreamAngularVelocity(differential.GetUpstreamAngularVelocity(new Vector2(wheels[2].wheelAngularVelocity, wheels[3].wheelAngularVelocity))));
+            torqueConverter.UpdatePhysics(engine.GetCurrentTorque(), engine.engineRPM, gearbox.currentGearRatio * engine.engineRPM);
             gearbox.UpdatePhysics();
             wheels[0].UpdatePhysicsDrivetrain(subDeltaTime, 0.0f);
             wheels[1].UpdatePhysicsDrivetrain(subDeltaTime, 0.0f);
@@ -104,7 +108,7 @@ public class AutomaticVehicle : MonoBehaviour
 
     void OnGUI()
     {
-        GUI.BeginGroup(new Rect(10, 10, 100, 200));
+        GUI.BeginGroup(new Rect(10, 10, 500, 500));
         GUILayout.Label("RPM: " + engine.engineRPM);
         GUILayout.Label("Throttle: " + throttleInput);
         GUILayout.Label("TC In Torque: " + torqueConverter.torqueIn);
@@ -113,5 +117,6 @@ public class AutomaticVehicle : MonoBehaviour
         GUILayout.Label("TC Speed Out: " + torqueConverter.speedOut);
         GUILayout.Label("Gear: " + gearbox.indicator);
         GUILayout.Label("Gear Ratio: " + gearbox.currentGearRatio);
+        GUILayout.Label("Speed: " + rb.linearVelocity.magnitude);
     }
 }
