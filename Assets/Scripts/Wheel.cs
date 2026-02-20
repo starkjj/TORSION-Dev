@@ -64,13 +64,17 @@ public class Wheel : MonoBehaviour
     public float slipSpeed;
 
     public HitData hitData;
-    private float _patchSize = 0.05f;
+    private float _patchSize = 0.025f;
     
     public void UpdatePhysicsPre(float argDeltaTime)
     {
         hitData.Reset();
         deltaTime = argDeltaTime;
-
+        
+        // calculate patch size
+        var patchScale = fZ.magnitude / 8000.0f;
+        _patchSize = Mathf.Clamp(_patchSize * patchScale, 0.01f, 0.05f);
+        
         var p = transform.position;
         Vector3[] points = new Vector3[5]
         {
@@ -191,7 +195,7 @@ public class Wheel : MonoBehaviour
     void CalculateLateralFriction()
     {
         slipAngle = Mathf.Atan2(-linearVelocityLocal.x, linearVelocityLocal.z); // slip angle
-        muX = EvaluatePacejka(slipAngle, 10.0f, 1.9f, 0.97f);
+        muX = EvaluatePacejka(slipAngle, 10.0f, 1.3f, 0.97f);
     }
 
     void CalculateLongitudinalFriction()
@@ -207,7 +211,7 @@ public class Wheel : MonoBehaviour
         slipSpeed = wheelAngularVelocity - angularVelocityLocal.z;
 
         //Map Wheel Slip To Friction Curve
-        muY = EvaluatePacejka(slipSpeed, 10.0f, 1.9f, 0.97f);
+        muY = EvaluatePacejka(slipSpeed, 10.0f, 1.65f, 0.97f);
     }
 
     void ApplyFrictionForce()

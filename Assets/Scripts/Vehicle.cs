@@ -108,16 +108,11 @@ public class Vehicle : MonoBehaviour
         //Drivetrain loop (RWD)
         for (int i = 0; i < SUBSTEPS; i++)
         {
+            var differentialW = differential.GetUpstreamAngularVelocity(new Vector2(wheels[2].wheelAngularVelocity, wheels[3].wheelAngularVelocity));
+            var gearboxW = gearbox.GetUpstreamAngularVelocity(differentialW);
+
             engine.UpdatePhysics(subDeltaTime, throttleInput, starterInput, clutch.clutchTorque);
-            clutch.UpdatePhysics(
-                clutchInput,
-                gearbox.inGear,
-                engine.angularVelocity,
-                gearbox.GetUpstreamAngularVelocity(
-                    differential.GetUpstreamAngularVelocity(
-                        new Vector2(wheels[2].wheelAngularVelocity, wheels[3].wheelAngularVelocity))
-                    )
-            );
+            clutch.UpdatePhysics(clutchInput,gearbox.inGear,engine.angularVelocity,gearboxW);
             gearbox.UpdatePhysics();
             wheels[0].UpdatePhysicsDrivetrain(subDeltaTime, 0.0f);
             wheels[1].UpdatePhysicsDrivetrain(subDeltaTime, 0.0f);
