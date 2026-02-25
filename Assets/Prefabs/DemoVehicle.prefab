@@ -389,11 +389,6 @@ MonoBehaviour:
   muX: 0
   muY: 0
   slipSpeed: 0
-  hitData:
-    distance: 0
-    normal: {x: 0, y: 0, z: 0}
-    point: {x: 0, y: 0, z: 0}
-    totalHit: 0
 --- !u!114 &6325310352397107462
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1095,11 +1090,6 @@ MonoBehaviour:
   muX: 0
   muY: 0
   slipSpeed: 0
-  hitData:
-    distance: 0
-    normal: {x: 0, y: 0, z: 0}
-    point: {x: 0, y: 0, z: 0}
-    totalHit: 0
 --- !u!114 &6773662087187523391
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1418,11 +1408,6 @@ MonoBehaviour:
   muX: 0
   muY: 0
   slipSpeed: 0
-  hitData:
-    distance: 0
-    normal: {x: 0, y: 0, z: 0}
-    point: {x: 0, y: 0, z: 0}
-    totalHit: 0
 --- !u!114 &8513233428562955568
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1509,11 +1494,6 @@ MonoBehaviour:
   muX: 0
   muY: 0
   slipSpeed: 0
-  hitData:
-    distance: 0
-    normal: {x: 0, y: 0, z: 0}
-    point: {x: 0, y: 0, z: 0}
-    totalHit: 0
 --- !u!114 &1019810583775882516
 MonoBehaviour:
   m_ObjectHideFlags: 0
